@@ -1,4 +1,5 @@
 from db_backup.processes import stdout_chunks
+from db_backup.errors import BadValue
 
 class DatabaseHandler(object):
     PSQL_DB = 'psql'
@@ -14,7 +15,7 @@ class DatabaseHandler(object):
             }.get(database_options['ENGINE'])
 
         if self.database_type is None:
-            raise ValueError("Provided database_engine ({0}) is not one we support".format(self.database_options['ENGINE']))
+            raise BadValue("Provided database_engine ({0}) is not one we support".format(self.database_options['ENGINE']))
 
     def dump(self):
         """Dump the contents of the database and yield a chunk at a time without hitting the disk"""
@@ -35,7 +36,7 @@ class DatabaseHandler(object):
                 command = "mysqldump"
                 options = "--user {USER}"
             else:
-                raise ValueError("The database_type on this instance is weird ({0}).".format(self.database_type))
+                raise BadValue("The database_type on this instance is weird ({0}).".format(self.database_type))
 
             # Inject host and port if required
             if self.database_options.get('PORT'):

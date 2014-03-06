@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import subprocess
 import logging
 import signal
@@ -24,17 +25,78 @@ def make_non_blocking(stream):
     fl = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
+def start_process(command, capture_stdin=False, capture_stdout=False, capture_stderr=False):
+    stdin = subprocess.PIPE if capture_stdin else None
+    stdout = subprocess.PIPE if capture_stdout else None
+    stderr = subprocess.PIPE if capture_stderr else None
+    return subprocess.Popen(shlex.split(command), stdin=stdin, stdout=stdout, stderr=stderr)
+
+def feed_process(process, desc, food):
+    """Feed the stdin of a process"""
+    with ensure_killed(process, desc):
+        for bite in food:
+            if process.poll() is not None:
+                break
+
+            process.stdin.write(bite)
+
+        # Finish feeding, close it's mouth
+        process.stdin.close()
+        wait_for(process, desc, timeout=10)
+
+def check_for_command(command, desc):
+    """Raise NoCommand if the specified command doesn't exist"""
+    try:
+        subprocess.check_call(["which", command], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError:
+        raise NoCommand("It seems you need to install {0} for {1}".format(command, desc))
+
+def wait_for(process, desc, timeout=10, silent=False):
+    """
+    Wait for a command to finish
+    Break early if it finishes
+    Just log if it doesn't within the timeout
+    It's up to the caller to see if it actually finished
+    """
+    # And wait for it to finish
+    for _ in until(timeout):
+        if process.poll() is not None:
+            break
+
+    if not silent and process.poll() is None:
+        log.error("Timed out waiting for the process to finish (%s)", desc)
+
+@contextmanager
+def ensure_killed(process, desc):
+    """Make sure the process gets killed"""
+    try:
+        yield
+    except KeyboardInterrupt:
+        log.error("Force stopping the process")
+
+    if process.poll() is None:
+        # Timedout waiting for the process to finish
+        process.terminate()
+        wait_for(process, desc, timeout=10, silent=True)
+
+        if process.poll() is None:
+            # Ok, force kill it now
+            log.error("Seems the process is hanging, sigkilling it now")
+            os.kill(process.pid, signal.SIGKILL)
+
+    if process.poll() != 0:
+        raise FailedToRun("{0} failed".format(desc), exit_code=process.returncode)
+
 def non_hanging_process(process, desc, timeout=30):
     """
     Yield (next_chunk, next_error) pairs from a process
     Make sure if the process hangs that it ends up dying
     If the process fails, we raise a FailedToRun exception
     """
-    error_output = []
     make_non_blocking(process.stdout)
     make_non_blocking(process.stderr)
 
-    try:
+    with ensure_killed(process, desc):
         for _ in until(timeout):
             try:
                 next_chunk = process.stdout.read()
@@ -46,31 +108,13 @@ def non_hanging_process(process, desc, timeout=30):
             except IOError:
                 next_error = ""
 
-            error_output.append(next_error)
             yield next_chunk, next_error
 
             # Stop when the process has stopped and there is no more output to read
             if not next_chunk and not next_error and process.poll() is not None:
                 break
-    except KeyboardInterrupt:
-        log.error("Force stopping the command")
-        pass
 
-    if process.poll() is None:
-        # Timedout waiting for the process to finish
-        log.error("Timed out waiting for the process to finish")
-        process.terminate()
-        for _ in until(10):
-            if process.poll() is not None:
-                break
-
-        if process.poll() is None:
-            # Ok, force kill it now
-            log.error("Seems the process is hanging, sigkilling it now")
-            os.kill(process.pid, signal.SIGKILL)
-
-    if process.poll() != 0:
-        raise FailedToRun("{0} failed".format(desc), exit_code=process.returncode, stderr='\n'.join(error_output))
+        wait_for(process, desc, timeout=0)
 
 def stdout_chunks(command, options, desc):
     """
@@ -78,14 +122,11 @@ def stdout_chunks(command, options, desc):
     Anything from stderr is logged
     """
     # Make sure the command itself exists
-    try:
-        process = subprocess.check_call(["which", command], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except subprocess.CalledProcessError:
-        raise NoCommand("It seems you need to install {0} for {1}".format(command, desc))
+    check_for_command(command, desc)
 
     # We can assume the command exists, let's do this!
     log.info("Running \"%s %s\"", command, options)
-    process = subprocess.Popen(shlex.split("{0} {1}".format(command, options)), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = start_process("{0} {1}".format(command, options), capture_stdout=True, capture_stderr=True)
 
     for next_chunk, next_error in non_hanging_process(process, desc):
         if next_error:
