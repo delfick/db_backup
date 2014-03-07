@@ -30,11 +30,14 @@ class DatabaseHandler(object):
 
     def __init__(self, database_info):
         self.database_info = database_info
+        if isinstance(self.database_info, dict):
+            self.database_info = DatabaseInfo.from_dict(self.database_info)
+
         self.database_type = {
               'django.db.backends.mysql': DatabaseHandler.MYSQL_DB
             , 'django.db.backends.sqlite3': DatabaseHandler.SQLITE_DB
             , 'django.db.backends.postgresql_psycopg2': DatabaseHandler.PSQL_DB
-            }.get(database_info.engine)
+            }.get(self.database_info.engine)
 
         if self.database_type is None:
             raise BadValue("Provided database_engine ({0}) is not one we support".format(self.database_info.engine))
