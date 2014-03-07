@@ -19,6 +19,5 @@ class Backup(object):
         filename = "db_backup_{0}.gpg".format(time.time())
         destination = os.path.join(backup_dir, filename)
 
-        encryption_handler.prepare()
         encryption_handler.encrypt(database_handler.dump(), destination)
 
