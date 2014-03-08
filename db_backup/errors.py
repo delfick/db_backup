@@ -13,9 +13,6 @@ class FailedToRun(FailedBackup):
 class FailedEncryption(FailedBackup):
     """Exception for when we can't encrypt"""
 
-class BadValue(FailedBackup):
-    """Exception for some bad parameter value"""
-
 class GPGFailedToStart(FailedBackup):
     """Exception for when gpg doesn't start"""
 
@@ -24,4 +21,7 @@ class BadBackupFile(FailedBackup):
 
 class NonEmptyDatabase(FailedBackup):
     """Exception for when we restore to a non empty database"""
+
+class NoDBDriver(FailedBackup):
+    """Exception for when we don't have a DatabaseDriver object for some engine"""
 
