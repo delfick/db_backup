@@ -6,6 +6,12 @@ setup(
     , packages = ['db_backup'] + ['db_backup.%s' % pkg for pkg in find_packages('db_backup')]
     , include_package_data = True
 
+    , extras_require =
+      { "tests":
+        [ "noseOfYeti"
+        ]
+      }
+
     # metadata for upload to PyPI
     , url = "https://github.com/delfick/db_backup"
     , author = "Stephen Moore"
