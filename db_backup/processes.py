@@ -25,11 +25,13 @@ def make_non_blocking(stream):
     fl = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
-def start_process(command, capture_stdin=False, capture_stdout=False, capture_stderr=False):
+def start_process(command, capture_stdin=False):
     stdin = subprocess.PIPE if capture_stdin else None
-    stdout = subprocess.PIPE if capture_stdout else None
-    stderr = subprocess.PIPE if capture_stderr else None
-    return subprocess.Popen(shlex.split(command), stdin=stdin, stdout=stdout, stderr=stderr)
+    process = subprocess.Popen(shlex.split(command), stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    make_non_blocking(process.stdout)
+    make_non_blocking(process.stderr)
+    return process
 
 def check_and_start_process(command, options, desc, **start_args):
     """Check for a command before we start a process with that command and some options"""
@@ -44,6 +46,7 @@ def feed_process(process, desc, food):
     """Feed the stdin of a process"""
     with ensure_killed(process, desc):
         for bite in food:
+            print_process(process, desc)
             if process.poll() is not None:
                 break
 
@@ -52,6 +55,38 @@ def feed_process(process, desc, food):
         # Finish feeding, close it's mouth
         process.stdin.close()
         wait_for(process, desc, timeout=10)
+        print_process(process, desc)
+
+def read_process(process):
+    """Get any stdout and stderr from the process"""
+    try:
+        next_chunk = process.stdout.read()
+    except IOError:
+        next_chunk = ""
+
+    try:
+        next_error = process.stderr.read()
+    except IOError:
+        next_error = ""
+
+    return next_chunk, next_error
+
+def print_process(process, desc):
+    """Print stdout and stderr from a process"""
+    for _ in until(timeout=5):
+        next_chunk, next_error = read_process(process)
+        next_chunk = next_chunk.strip()
+        next_error = next_error.strip()
+        if not next_error and not next_chunk:
+            break
+
+        if next_chunk:
+            for line in next_chunk.split('\n'):
+                log.info("{0} [STDOUT] {1}".format(desc, line))
+
+        if next_error:
+            for line in next_error.split('\n'):
+                log.info("{0} [STDERR] {1}".format(desc, line))
 
 def check_for_command(command, desc):
     """Raise NoCommand if the specified command doesn't exist"""
@@ -88,10 +123,10 @@ def ensure_killed(process, desc):
         process.terminate()
         wait_for(process, desc, timeout=10, silent=True)
 
-        if process.poll() is None:
-            # Ok, force kill it now
-            log.error("Seems the process is hanging, sigkilling it now")
-            os.kill(process.pid, signal.SIGKILL)
+    if process.poll() is None:
+        # Ok, force kill it now
+        log.error("Seems the process is hanging, sigkilling it now")
+        os.kill(process.pid, signal.SIGKILL)
 
     if process.poll() != 0:
         raise FailedToRun("{0} failed".format(desc), exit_code=process.returncode)
@@ -102,21 +137,9 @@ def non_hanging_process(process, desc, timeout=30):
     Make sure if the process hangs that it ends up dying
     If the process fails, we raise a FailedToRun exception
     """
-    make_non_blocking(process.stdout)
-    make_non_blocking(process.stderr)
-
     with ensure_killed(process, desc):
         for _ in until(timeout):
-            try:
-                next_chunk = process.stdout.read()
-            except IOError:
-                next_chunk = ""
-
-            try:
-                next_error = process.stderr.read()
-            except IOError:
-                next_error = ""
-
+            next_chunk, next_error = read_process(process)
             yield next_chunk, next_error
 
             # Stop when the process has stopped and there is no more output to read
@@ -125,16 +148,21 @@ def non_hanging_process(process, desc, timeout=30):
 
         wait_for(process, desc, timeout=0)
 
-def stdout_chunks(command, options, desc):
+def stdout_chunks(command, options, desc, interaction=None):
     """
     Yield chunks from stdout from a process running specified command
     Anything from stderr is logged
     """
-    process = check_and_start_process(command, options, desc, capture_stdout=True, capture_stderr=True)
+    process = check_and_start_process(command, options, desc, capture_stdin=bool(interaction))
+    if interaction:
+        process.stdin.write(interaction)
+        process.stdin.close()
 
     for next_chunk, next_error in non_hanging_process(process, desc):
         if next_error:
             for line in next_error.split('\n'):
                 log.info("STDERR: %s", line)
-        yield next_chunk
+
+        if next_chunk:
+            yield next_chunk
 
