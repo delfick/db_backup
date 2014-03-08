@@ -1,7 +1,9 @@
 from db_backup.processes import stdout_chunks, check_and_start_process, feed_process
 from db_backup.errors import NoDBDriver
 
-from django.db import connection
+import logging
+
+log = logging.getLogger("db_backup")
 
 class DatabaseInfo(object):
     ATTRS = ("engine", "name", "user", "password", "port", "host")
@@ -34,6 +36,7 @@ class DatabaseDriver(object):
     aliases = ()
     dump_template = ("", "")
     restore_template = ("", "")
+    is_empty_template = ("", "")
 
     def __init__(self, database_info):
         self.database_info = database_info
@@ -53,7 +56,7 @@ class DatabaseDriver(object):
         command, argv = template
 
         if isinstance(argv, basestring):
-            template = [("", argv)]
+            argv = [("", argv)]
 
         for flag, val in argv:
             filled = val.format(**values)
@@ -75,32 +78,39 @@ class DatabaseDriver(object):
         return self.fill_out(self.restore_template)
 
     def is_empty(self):
-        """Return True or False depending on whether the database is empty"""
-        raise NotImplementedError
+        """See that there are no tables under this database"""
+        result = self.run_template(self.is_empty_template, "Find number of tables")
+        log.info("The database has %s tables", result)
+        return result == "0"
+
+    def run_template(self, template, desc):
+        """Run a template and return it's stdout"""
+        command, options = self.fill_out(template)
+        return '\n'.join(stdout_chunks(command, options, desc)).strip()
 
 class PsqlDriver(DatabaseDriver):
     aliases = ('psql', 'django.db.backends.postgresql_psycopg2', )
     dump_template = ('pg_dump', [("-U", "{user}"), ("--host", "{host}"), ("--port", "{port}"), ("", "{name}")])
     restore_template = ('psql', [("-U", "{user}"), ("--host", "{host}"), ("--port", "{port}"), ("-d", "{name}")])
-
-    def is_empty(self):
-        return len(connection.introspection.table_names()) == 0
+    is_empty_template = ('psql', [
+          ("-U", "{user}"), ("--host", "{host}"), ("--port", "{port}"), ("", "{name}")
+        , ("", "-c \"select count(*) from information_schema.tables where table_schema = '{name}'\" -t -A")
+        ])
 
 class MysqlDriver(DatabaseDriver):
     aliases = ('mysql', 'django.db.backends.mysql', )
     dump_template = ('mysqldump', [("-user", "{user}"), ("--host", "{host}"), ("--port", "{port}"), ("", "{name}")])
     restore_template = ('mysql', [("-user", "{user}"), ("--host", "{host}"), ("--port", "{port}"), ("-D", "{name}")])
-
-    def is_empty(self):
-        return len(connection.introspection.table_names()) == 0
+    is_empty_template = ('mysql', [
+          ("-user", "{user}"), ("--host", "{host}"), ("--port", "{port}"), ("-D", "{name}")
+        , ("", "-e \"select count(*) from information_schema.tables where table_schema = '{name}'\" --batch -s")
+        ])
 
 class SqliteDriver(DatabaseDriver):
     aliases = ('sqlite3', 'django.db.backends.sqlite3', )
     dump_template = ('sqlite3', "{name} .dump")
     restore_template = ('sqlite3', "{name}")
-
-    def is_empty(self):
-        return len(connection.introspection.table_names()) == 0
+    is_empty_template = ('sqlite3', "{name} \"select count(*) from sqlite_master where type='table'\"")
 
 class DatabaseHandler(object):
     def __init__(self, database_info):
