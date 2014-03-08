@@ -19,3 +19,9 @@ class BadValue(FailedBackup):
 class GPGFailedToStart(FailedBackup):
     """Exception for when gpg doesn't start"""
 
+class BadBackupFile(FailedBackup):
+    """Exception for something wrong with the backup file"""
+
+class NonEmptyDatabase(FailedBackup):
+    """Exception for when we restore to a non empty database"""
+

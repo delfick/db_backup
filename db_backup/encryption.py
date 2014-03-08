@@ -1,26 +1,14 @@
-from db_backup.processes import start_process, feed_process, check_for_command, until
-from db_backup.errors import FailedEncryption, BadValue, GPGFailedToStart
-
-import logging
-import os
-
-log = logging.getLogger("db_backup")
+from db_backup.processes import feed_process, check_and_start_process, until, stdout_chunks
+from db_backup.errors import GPGFailedToStart
 
 class Encryptor(object):
-    """Used to run gpg over some input with a particular recipient list"""
-    def __init__(self, recipients):
-        self.recipients = recipients
+    """Used to encrypt and decrypt with gpg"""
 
-    def encrypt(self, input_iterator, destination):
+    def encrypt(self, input_iterator, recipients, destination):
         """Encrypt chunks from the provided iterator"""
-        command = "gpg --trust-model always -e -r {0} --output {1}".format(" -r ".join(self.recipients), destination)
-
         desc = "Encrypting something"
-        check_for_command("gpg", desc)
-
-        # We know we have gpg, let's do this!
-        log.info("Running \"%s\"", command)
-        process = start_process(command, capture_stdin=True)
+        options = "--trust-model always -e -r {0} --output {1}".format(" -r ".join(recipients), destination)
+        process = check_and_start_process("gpg", options, desc, capture_stdin=True)
 
         # See if it fails to start (i.e. bad recipients)
         for _ in until(timeout=0.5):
@@ -28,4 +16,8 @@ class Encryptor(object):
                 raise GPGFailedToStart("GPG didn't even start")
 
         feed_process(process, desc, input_iterator)
+
+    def decrypt(self, location):
+        """Decrypt provided location and yield chunks of decrypted data"""
+        return stdout_chunks("gpg", "--trust-model always -d {0}".format(location), "Decrypting something")
 

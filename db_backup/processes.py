@@ -31,6 +31,15 @@ def start_process(command, capture_stdin=False, capture_stdout=False, capture_st
     stderr = subprocess.PIPE if capture_stderr else None
     return subprocess.Popen(shlex.split(command), stdin=stdin, stdout=stdout, stderr=stderr)
 
+def check_and_start_process(command, options, desc, **start_args):
+    """Check for a command before we start a process with that command and some options"""
+    # Make sure the command itself exists
+    check_for_command(command, desc)
+
+    # We can assume the command exists, let's do this!
+    log.info("Running \"%s %s\"", command, options)
+    return start_process("{0} {1}".format(command, options), **start_args)
+
 def feed_process(process, desc, food):
     """Feed the stdin of a process"""
     with ensure_killed(process, desc):
@@ -121,12 +130,7 @@ def stdout_chunks(command, options, desc):
     Yield chunks from stdout from a process running specified command
     Anything from stderr is logged
     """
-    # Make sure the command itself exists
-    check_for_command(command, desc)
-
-    # We can assume the command exists, let's do this!
-    log.info("Running \"%s %s\"", command, options)
-    process = start_process("{0} {1}".format(command, options), capture_stdout=True, capture_stderr=True)
+    process = check_and_start_process(command, options, desc, capture_stdout=True, capture_stderr=True)
 
     for next_chunk, next_error in non_hanging_process(process, desc):
         if next_error:

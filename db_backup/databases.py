@@ -1,5 +1,7 @@
-from db_backup.processes import stdout_chunks
+from db_backup.processes import stdout_chunks, check_and_start_process, feed_process
 from db_backup.errors import BadValue
+
+from django.db import connection
 
 class DatabaseInfo(object):
     ATTRS = ("engine", "name", "user", "password", "port", "host")
@@ -42,10 +44,21 @@ class DatabaseHandler(object):
         if self.database_type is None:
             raise BadValue("Provided database_engine ({0}) is not one we support".format(self.database_info.engine))
 
+    def is_empty(self):
+        """Work out if the database is empty"""
+        tables = connection.introspection.table_names()
+        return len(tables) == 0
+
     def dump(self):
         """Dump the contents of the database and yield a chunk at a time without hitting the disk"""
         command, options = self.dump_command()
         return stdout_chunks(command, options, "Dump command")
+
+    def restore(self, food):
+        """Restore from the provided chunks"""
+        command, options = self.restore_command()
+        restorer = check_and_start_process(command, options, "Restore command", capture_stdin=True)
+        feed_process(restorer, "Restoring database", food)
 
     def dump_command(self):
         """Get the necessary command for dumping contents from our database"""
@@ -71,6 +84,30 @@ class DatabaseHandler(object):
 
             # Add the database name after the options
             options = "{0} {{name}}".format(options)
+
+        return command, options.format(**self.database_info.as_dict())
+
+    def restore_command(self):
+        """Get the necessary command for restoring from stdin"""
+        if self.database_type == DatabaseHandler.SQLITE_DB:
+            # Sqlite3 doesn't have a special command for dumping
+            command = "sqlite3"
+            options = "{name}"
+        else:
+            if self.database_type == DatabaseHandler.PSQL_DB:
+                command = "psql"
+                options = "-d {name} -U {user}"
+            elif self.database_type == DatabaseHandler.MYSQL_DB:
+                command = "mysql"
+                options = "-D {name} --user {user}"
+            else:
+                raise BadValue("The database_type on this instance is weird ({0}).".format(self.database_type))
+
+            # Inject host and port if required
+            if self.database_info.port:
+                options = "{0} --port {{port}}".format(options)
+            if self.database_info.host:
+                options = "{0} --host {{host}}".format(options)
 
         return command, options.format(**self.database_info.as_dict())
 
