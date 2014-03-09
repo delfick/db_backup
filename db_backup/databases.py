@@ -1,7 +1,8 @@
 from db_backup.processes import stdout_chunks, check_and_start_process, feed_process
-from db_backup.errors import NoDBDriver
+from db_backup.errors import NoDBDriver, NoDatabase
 
 import logging
+import os
 
 log = logging.getLogger("db_backup")
 
@@ -10,11 +11,11 @@ class DatabaseInfo(object):
 
     def __init__(self, engine, name, user=None, password=None, port=None, host=None):
         self.name = name
-        self.user = user
-        self.port = port
-        self.host = host
+        self.user = user or ""
+        self.port = port or ""
+        self.host = host or ""
         self.engine = engine
-        self.password = password
+        self.password = password or ""
 
     def as_dict(self):
         """Return database info attributes as a dictionary"""
@@ -94,15 +95,15 @@ class PsqlDriver(DatabaseDriver):
     restore_template = ('psql', [("-U", "{user}"), ("--host", "{host}"), ("--port", "{port}"), ("-d", "{name}")])
     is_empty_template = ('psql', [
           ("-U", "{user}"), ("--host", "{host}"), ("--port", "{port}"), ("", "{name}")
-        , ("", "-c \"select count(*) from information_schema.tables where table_schema = '{name}'\" -t -A")
+        , ("", "-c \"select count(*) from information_schema.tables where table_schema = 'public'\" -t -A")
         ])
 
 class MysqlDriver(DatabaseDriver):
     aliases = ('mysql', 'django.db.backends.mysql', )
-    dump_template = ('mysqldump', [("-user", "{user}"), ("--host", "{host}"), ("--port", "{port}"), ("", "{name}")])
-    restore_template = ('mysql', [("-user", "{user}"), ("--host", "{host}"), ("--port", "{port}"), ("-D", "{name}")])
+    dump_template = ('mysqldump', [("--user", "{user}"), ("--host", "{host}"), ("--port", "{port}"), ("", "{name}")])
+    restore_template = ('mysql', [("--user", "{user}"), ("--host", "{host}"), ("--port", "{port}"), ("-D", "{name}")])
     is_empty_template = ('mysql', [
-          ("-user", "{user}"), ("--host", "{host}"), ("--port", "{port}"), ("-D", "{name}")
+          ("--user", "{user}"), ("--host", "{host}"), ("--port", "{port}"), ("-D", "{name}")
         , ("", "-e \"select count(*) from information_schema.tables where table_schema = '{name}'\" --batch -s")
         ])
 
@@ -112,13 +113,29 @@ class SqliteDriver(DatabaseDriver):
     restore_template = ('sqlite3', "{name}")
     is_empty_template = ('sqlite3', "{name} \"select count(*) from sqlite_master where type='table'\"")
 
+    def is_empty(self):
+        """Complain if the database doesn't exist to be consistent with other drivers"""
+        if not os.path.exists(self.database_info.name):
+            raise NoDatabase("There was no sqlite database at {0}".format(self.database_info.name))
+        return super(SqliteDriver, self).is_empty()
+
 class DatabaseHandler(object):
-    def __init__(self, database_info):
+    def __init__(self, database_info, database_driver=None):
         self.drivers = {}
         self.database_info = database_info
+        self.given_database_driver = database_driver
+
         if isinstance(self.database_info, dict):
             self.database_info = DatabaseInfo.from_dict(self.database_info)
-        self.db_driver = self.driver_for(self.database_info)
+
+    @property
+    def db_driver(self):
+        if not hasattr(self, '_db_driver'):
+            if self.given_database_driver is None:
+                self._db_driver = self.driver_for(self.database_info)
+            else:
+                self._db_driver = self.given_database_driver
+        return self._db_driver
 
     def dump(self):
         """Dump the contents of the database and yield a chunk at a time without hitting the disk"""

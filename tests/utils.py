@@ -2,9 +2,14 @@ from db_backup.processes import stdout_chunks
 
 from contextlib import contextmanager
 
+import traceback
 import tempfile
+import logging
 import shutil
+import sys
 import os
+
+log = logging.getLogger("db_backup_tests")
 
 test_folder = os.path.abspath(os.path.dirname(__file__))
 
@@ -49,4 +54,24 @@ def gpg_fingerprint(uid, gpg_home):
                 return next_fingerprint
 
     raise Exception("Couldn't find fingerprint for uid {0}".format(uid))
+
+@contextmanager
+def print_exception_and_assertfail(desc):
+    """Ignore any exceptions and print out the traceback to sys.stderr"""
+    try:
+        yield
+    except KeyboardInterrupt:
+        raise
+    except Exception:
+        print >> sys.stderr, traceback.format_exc()
+        assert False, desc
+
+def run_command(command, options, desc):
+    """Run some command and log the stdout"""
+    lines = []
+    for chunk in stdout_chunks(command, options, desc):
+        for line in chunk.split("\n"):
+            log.info("STDOUT: %s", line)
+            lines.append(line)
+    return lines
 

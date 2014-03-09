@@ -8,7 +8,7 @@ setup(
 
     , extras_require =
       { "tests":
-        [ "noseOfYeti"
+        [ "noseOfYeti>=1.4.9"
         ]
       }
 

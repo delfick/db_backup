@@ -25,3 +25,6 @@ class NonEmptyDatabase(FailedBackup):
 class NoDBDriver(FailedBackup):
     """Exception for when we don't have a DatabaseDriver object for some engine"""
 
+class NoDatabase(FailedBackup):
+    """Exception for when we don't have a Database to work with"""
+
