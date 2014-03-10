@@ -6,6 +6,7 @@ from db_backup.encryption import Encryptor
 
 from noseOfYeti.tokeniser.support import noy_sup_setUp
 from unittest import TestCase
+import os
 
 from tests.utils import a_temp_file, path_to, copied_directory, gpg_fingerprint
 
@@ -23,6 +24,7 @@ describe TestCase, "Encryptor":
         gpg_home = path_to("gpg")
 
         with a_temp_file() as dest:
+            os.remove(dest)
             self.encryptor.encrypt([message], ["bob@bob.com", "jade@stone.com"], dest, gpg_home)
 
             with open(dest) as f:
@@ -40,6 +42,7 @@ describe TestCase, "Encryptor":
 
         with copied_directory(gpg_home) as new_gpg_home:
             with a_temp_file() as dest:
+                os.remove(dest)
                 self.encryptor.encrypt([message], ["bob@bob.com"], dest, new_gpg_home)
 
                 with open(dest) as f:

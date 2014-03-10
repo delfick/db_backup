@@ -23,24 +23,29 @@ def a_temp_file():
     fle = None
     try:
         fle = tempfile.NamedTemporaryFile(delete=False).name
-        os.remove(fle)
         yield fle
     finally:
         if fle and os.path.exists(fle):
             os.remove(fle)
 
 @contextmanager
+def a_temp_directory():
+    """Yield a temporary directory and ensure it is deleted"""
+    directory = None
+    try:
+        directory = tempfile.mkdtemp()
+        yield directory
+    finally:
+        if directory and os.path.exists(directory):
+            shutil.rmtree(directory)
+
+@contextmanager
 def copied_directory(original):
     """Copy a directory and yield that directory, make sure it disappears on exit"""
-    new_dir = None
-    try:
-        new_dir = tempfile.mkdtemp()
+    with a_temp_directory() as new_dir:
         shutil.rmtree(new_dir)
         shutil.copytree(original, new_dir)
         yield new_dir
-    finally:
-        if new_dir and os.path.exists(new_dir):
-            shutil.rmtree(new_dir)
 
 def gpg_fingerprint(uid, gpg_home):
     """Get us a fingerprint from a uid"""
@@ -74,4 +79,8 @@ def run_command(command, options, desc):
             log.info("STDOUT: %s", line)
             lines.append(line)
     return lines
+
+def assert_is_binary(location):
+    """Run file against the location and see that it returns 'data'"""
+    return ''.join(stdout_chunks("file", "{0} -b".format(location), "See if a file is binary")).strip() == "data"
 
