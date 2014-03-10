@@ -184,7 +184,7 @@ describe TestCase, "DriverTestBase":
     it "complains if tries to determine if a database that doesn't exist is empty":
         self.dropdb()
         if self.SQL_ENGINE == 'sqlite3':
-            with self.assertRaises(NoDatabase):
+            with self.assertRaisesRegexp(NoDatabase, "There was no sqlite database.+"):
                 self.database_driver.is_empty()
         else:
             with self.assertRaisesRegexp(FailedToRun, "Find number of tables failed"):

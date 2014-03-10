@@ -19,13 +19,13 @@ class DatabaseInfo(object):
 
     def as_dict(self):
         """Return database info attributes as a dictionary"""
-        return {key:getattr(self, key, None) for key in DatabaseInfo.ATTRS}
+        return dict((key, getattr(self, key, None)) for key in DatabaseInfo.ATTRS)
 
     @classmethod
     def from_dict(self, options):
         """Return us an instance of DatabaseInfo from a dictionary"""
-        lowered = {key.lower():val for key, val in options.items()}
-        have = {key:lowered[key] for key in DatabaseInfo.ATTRS if key in lowered}
+        lowered = dict((key.lower(), val) for key, val in options.items())
+        have = dict((key, lowered[key]) for key in DatabaseInfo.ATTRS if key in lowered)
         return DatabaseInfo(**have)
 
 class DatabaseDriver(object):

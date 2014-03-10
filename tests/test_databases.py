@@ -10,14 +10,14 @@ import mock
 describe TestCase, "DatabaseInfo":
     it "takes in the attrs as specified by ATTRS":
         self.assertGreater(len(DatabaseInfo.ATTRS), 0)
-        vals = {key:mock.Mock(name=key) for key in DatabaseInfo.ATTRS}
+        vals = dict((key, mock.Mock(name=key)) for key in DatabaseInfo.ATTRS)
         database_info = DatabaseInfo(**vals)
         for key in DatabaseInfo.ATTRS:
             self.assertIs(getattr(database_info, key), vals[key])
 
     it "converts None values into empty strings":
         self.assertGreater(len(DatabaseInfo.ATTRS), 0)
-        vals = {key:mock.Mock(name=key) for key in DatabaseInfo.ATTRS}
+        vals = dict((key, mock.Mock(name=key)) for key in DatabaseInfo.ATTRS)
         vals["port"] = None
         database_info = DatabaseInfo(**vals)
         for key in DatabaseInfo.ATTRS:
@@ -26,11 +26,11 @@ describe TestCase, "DatabaseInfo":
         self.assertIs(database_info.port, "")
 
     it "can turn back into a dictionary":
-        vals = {key:mock.Mock(name=key) for key in DatabaseInfo.ATTRS}
+        vals = dict((key, mock.Mock(name=key)) for key in DatabaseInfo.ATTRS)
         self.assertEqual(DatabaseInfo(**vals).as_dict(), vals)
 
     it "can become a DatabaseInfo from a dict with extra or missing args":
-        vals = {key:mock.Mock(name=key) for key in DatabaseInfo.ATTRS}
+        vals = dict((key, mock.Mock(name=key)) for key in DatabaseInfo.ATTRS)
         del vals["port"]
         vals["other"] = mock.Mock(name="other")
         database_info = DatabaseInfo.from_dict(vals)

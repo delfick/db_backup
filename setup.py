@@ -9,6 +9,8 @@ setup(
     , extras_require =
       { "tests":
         [ "noseOfYeti>=1.4.9"
+        , "nose"
+        , "mock"
         ]
       }
 
