@@ -15,7 +15,7 @@ setup(
       }
 
     # metadata for upload to PyPI
-    , url = "https://github.com/delfick/db_backup"
+    , url = "http://db-backup.readthedocs.org"
     , author = "Stephen Moore"
     , author_email = "stephen@delfick.com"
     , description = "Code for creating encrypted backups of databases"
