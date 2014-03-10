@@ -4,9 +4,9 @@ from db_backup.databases import DatabaseInfo, DatabaseDriver, PsqlDriver, MysqlD
 from db_backup.errors import FailedToRun, NoDatabase
 
 from tests.utils import print_exception_and_assertfail, run_command
+from tests.case import TestCase
 
 from noseOfYeti.tokeniser.support import noy_sup_setUp, noy_sup_tearDown
-from unittest import TestCase
 import mock
 
 from textwrap import dedent

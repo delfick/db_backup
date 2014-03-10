@@ -3,8 +3,9 @@
 from db_backup.databases import DatabaseInfo, DatabaseHandler, PsqlDriver, MysqlDriver, SqliteDriver
 from db_backup.errors import NoDBDriver
 
+from tests.case import TestCase
+
 from noseOfYeti.tokeniser.support import noy_sup_setUp
-from unittest import TestCase
 import mock
 
 describe TestCase, "DatabaseInfo":

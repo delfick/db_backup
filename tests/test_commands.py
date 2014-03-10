@@ -4,8 +4,8 @@ from db_backup.errors import BadBackupFile, NonEmptyDatabase
 from db_backup.commands import backup, restore
 
 from tests.utils import a_temp_directory, path_to, assert_is_binary, a_temp_file
+from tests.case import TestCase
 
-from unittest import TestCase
 import uuid
 import mock
 import os

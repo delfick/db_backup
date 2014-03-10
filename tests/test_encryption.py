@@ -5,7 +5,7 @@ from db_backup.errors import GPGFailedToStart, FailedToRun
 from db_backup.encryption import Encryptor
 
 from tests.utils import a_temp_file, path_to, copied_directory, gpg_fingerprint, setup_gpg_home
-from unittest import TestCase
+from tests.case import TestCase
 
 from noseOfYeti.tokeniser.support import noy_sup_setUp
 import os
