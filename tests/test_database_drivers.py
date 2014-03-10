@@ -286,8 +286,8 @@ describe TestCase, "DriverTestBase":
 
                         $ sudo mysql
                         > create user db_backup_tests;
-                        > grant all privileges on db_backup_tests.* to 'db_backup_tests'@'localhost';
-                """.format(cls.SQL_TEST_USER))
+                        > grant all privileges on {1}.* to '{0}'@'localhost' with grant option;
+                """.format(cls.SQL_TEST_USER, cls.SQL_TEST_DB_NAME))
 
         @classmethod
         def see_if_database_exists(cls):
@@ -340,6 +340,11 @@ describe TestCase, "DriverTestBase":
         def run_sql_command(self, command, desc, extra=""):
             """Run some command with sqlite cli"""
             return run_command("sqlite3", "{1} \"{2}\" {3}".format(self.SQL_TEST_USER, self.SQL_TEST_DB_NAME, command, extra), desc)
+
+        def insert_values(self, table_name, values):
+            """Sqlite version on travis ci is too old :("""
+            for val in values:
+                self.run_sql_command("insert into {0} values {1}".format(table_name, val), "Inserting value {0}".format(val))
 
         it "has a plain and django alias":
             assert 'sqlite3' in SqliteDriver.aliases

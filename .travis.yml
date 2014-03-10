@@ -1,0 +1,42 @@
+language: python
+python:
+  - "2.6"
+  - "2.7"
+services:
+  - mysql
+cache:
+  directories:
+    - $HOME/.pip-cache/
+install:
+  - pip install -e . --use-mirrors --download-cache $HOME/.pip-cache/
+  - pip install -e '.[tests]' --use-mirrors --download-cache $HOME/.pip-cache/
+
+  # Version of gpg on travis ci seems a bit old
+  - echo $(pwd) > $HOME/current_dir
+  - cat $HOME/current_dir
+  - sudo apt-get update
+  - sudo apt-get install automake autoconf build-essential --yes
+  - wget ftp://ftp.gnupg.org/gcrypt/gnupg/gnupg-1.4.16.tar.bz2
+  - tar xf gnupg-1.4.16.tar.bz2
+  - cd gnupg-1.4.16
+  - ./autogen.sh
+  - ./configure
+  - make
+  - sudo make install
+  - sudo mv /usr/bin/gpg /usr/bin/gpg.old
+  - sudo ln -s /usr/local/bin/gpg /usr/bin/gpg
+  - cd $(cat $HOME/current_dir)
+
+  # Setup the databases
+  - sudo mysql -e "create user db_backup_tests"
+  - sudo mysql -e "grant all privileges on db_backup_test_db.* to 'db_backup_tests'@'localhost' with grant option"
+  - sudo mysql -e "select User from mysql.user"
+  - sudo mysql -e "show grants for db_backup_tests@localhost"
+  - sudo -u postgres psql -c "create user db_backup_tests with CREATEDB"
+
+  # See versions for debugging piece of mind
+  - gpg --version
+  - sqlite3 --version
+script:
+  - ./test.sh
+
