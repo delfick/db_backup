@@ -9,6 +9,9 @@ This library was originally created for
 `RatticWeb <https://github.com/tildaslash/RatticWeb>`_ which made the decision
 to not handle encryption within the application itself (encryption is difficult).
 
+.. image:: https://travis-ci.org/delfick/db_backup.png?branch=master
+    :target: https://travis-ci.org/delfick/db_backup
+
 Usage
 -----
 
