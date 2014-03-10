@@ -1,0 +1,3 @@
+sphinx
+django
+cloud_sptheme

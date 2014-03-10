@@ -1,0 +1,111 @@
+/*
+ * nature.css_t
+ * ~~~~~~~~~~~~
+ *
+ * Sphinx stylesheet -- nature theme.
+ *
+ * :copyright: Copyright 2007-2010 by the Sphinx team, see AUTHORS.
+ * :license: BSD, see LICENSE for details.
+ *
+ */
+ 
+@import url("cloud.css");
+
+html {
+    font-size: 76%;
+}
+
+body {
+    font-size: 1.3em!important;
+}
+
+div.bodywrapper {
+    margin: 0 70px;
+}
+
+.body {
+    background-color: #fff!important;
+    border-right: 1px solid {{theme_bodytrimcolor}};
+}
+
+div.highlight pre,
+div.highlight-python pre
+{
+    border-top: 1px solid {{theme_bodytrimcolor}};
+    border-bottom: 1px solid {{theme_bodytrimcolor}};
+}
+
+ul.menu {
+    height: 20px;
+    font-size: 1.3em;
+    color: {{theme_relbartextcolor}};
+    background-color: #6BA81E;
+    padding: 0 0 20px 10px!important;
+
+    border-radius: .7em .7em 0 0;
+    -moz-border-radius: .7em .7em 0 0;
+    -webkit-border-radius: .7em .7em 0 0;
+}
+ul.menu a {
+    color: {{ theme_relbarlinkcolor }};
+    padding: 10px;
+    text-decoration: none;
+}
+ul.menu a.selected {
+    background-color: #000;
+}
+ul.menu a:hover {
+    color: #000;
+    background-color: #ccc;
+}
+
+form#searchbox {
+    display:inline;
+    margin: 0;
+    position: relative;
+    bottom: 0.15em;
+}
+
+p#site_title {
+    font-size: 2.7em;
+    line-height: 1em;
+    margin: 0;
+    padding: 0.3em 0;
+}
+p#site_title a {
+    color: #000!important;
+    font-weight: bold;
+    text-decoration: none;
+    padding-left: 10px;
+}
+
+div.body h1,
+div.body h2,
+div.body h3,
+div.body h4,
+div.body h5,
+div.body h6 {
+    font-family: Arial, sans-serif;
+    background-color: #BED4EB;
+    font-weight: normal;
+    color: #212224;
+    margin: 30px 0px 10px 0px;
+    padding: 5px 0 5px 10px;
+    text-shadow: 0px 1px 0 white
+}
+ 
+div.body h1 { border-top: 20px solid #fff; margin-top: 0; font-size: 200%; }
+div.body h2 { font-size: 150%; background-color: #C8D5E3; }
+div.body h3 { font-size: 120%; background-color: #D8DEE3; }
+div.body h4 { font-size: 100%; background-color: #eeeeee; margin-top: 20px;}
+div.body h5 { font-size: 100%; background-color: #eeeeee; margin-top: 20px;}
+div.body h6 { font-size: 100%; background-color: #eeeeee; margin-top: 20px;}
+
+.relbar-top .related {
+    padding: 0;
+    background: #fff;
+}
+
+/* compiled css3-github-ribbon.styl (https://github.com/dciccale/css3-github-ribbon) */
+.github-ribbon{background-color:#121621;top:3.2em;right:-3.7em;-webkit-transform:rotate(45deg);-moz-transform:rotate(45deg);-ms-transform:rotate(45deg);-o-transform:rotate(45deg);transform:rotate(45deg);-webkit-box-shadow:0 0 0 1px #1d212e inset,0 0 2px 1px #fff inset,0 0 1em #888;-moz-box-shadow:0 0 0 1px #1d212e inset,0 0 2px 1px #fff inset,0 0 1em #888;-ms-box-shadow:0 0 0 1px #1d212e inset,0 0 2px 1px #fff inset,0 0 1em #888;-o-box-shadow:0 0 0 1px #1d212e inset,0 0 2px 1px #fff inset,0 0 1em #888;box-shadow:0 0 0 1px #1d212e inset,0 0 2px 1px #fff inset,0 0 1em #888;color:rgba(255,255,255,0.9);display:block;padding:.6em 3.5em;position:fixed;font:bold .82em sans-serif;text-align:center;text-decoration:none;text-shadow:1px -1px 8px rgba(0,0,0,0.6);-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;-o-user-select:none;user-select:none}
+
