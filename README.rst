@@ -28,7 +28,15 @@ Or if you're developing it:
 Tests
 -----
 
-Run the helpful script::
+Run the helpful script:
+
+.. code-block::
 
     ./test.sh
+
+Or if you're outside a virtualenv and want to test with old pythons as well:
+
+.. code-block::
+
+    tox
 
