@@ -84,3 +84,9 @@ def assert_is_binary(location):
     """Run file against the location and see that it returns 'data'"""
     return ''.join(stdout_chunks("file", "{0} -b".format(location), "See if a file is binary")).strip() == "data"
 
+def setup_gpg_home(gpg_home):
+    """Make sure the directory has 700 permissions and everything inside has 600 permissions"""
+    os.chmod(gpg_home, 0700)
+    for fle in os.listdir(gpg_home):
+        os.chmod(os.path.join(gpg_home, fle), 0600)
+
