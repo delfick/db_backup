@@ -20,13 +20,31 @@ describe TestCase, "Backup command":
                 self.assertEqual(len(os.listdir(backup_dir)), 0)
 
                 gpg_home = path_to("gpg")
-                expected = os.path.join(backup_dir, filename)
                 recipients = ["bob@bob.com"]
                 database_settings = {"name": database, "engine": "sqlite3"}
 
-                backup(database_settings, recipients, backup_dir, gpg_home)
-                assert os.path.exists(expected)
-                assert_is_binary(expected)
+                destination = backup(database_settings, recipients, backup_dir, gpg_home=gpg_home)
+
+                self.assertEqual(destination, os.path.join(backup_dir, filename))
+                assert os.path.exists(destination)
+                assert_is_binary(destination)
+
+    it "Can take in a function to make the backup filename":
+        filename = str(uuid.uuid1())
+        filename_maker = lambda: filename
+        with a_temp_file() as database:
+            with a_temp_directory() as backup_dir:
+                self.assertEqual(len(os.listdir(backup_dir)), 0)
+
+                gpg_home = path_to("gpg")
+                recipients = ["bob@bob.com"]
+                database_settings = {"name": database, "engine": "sqlite3"}
+
+                destination = backup(database_settings, recipients, backup_dir, filename_maker=filename_maker, gpg_home=gpg_home)
+
+                self.assertEqual(destination, os.path.join(backup_dir, filename))
+                assert os.path.exists(destination)
+                assert_is_binary(destination)
 
 describe TestCase, "Restore command":
     it "complains if the restore_from backup file doesn't exist":

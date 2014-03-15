@@ -9,13 +9,17 @@ def make_backup_filename():
     """Return a string for the filename of a backup"""
     return "db_backup_{0}.gpg".format(time.time())
 
-def backup(database_settings, recipients, backup_dir, gpg_home=None):
+def backup(database_settings, recipients, backup_dir, filename_maker=None, gpg_home=None):
     """Backup the database into the specified backup_dir for our recipients"""
-    filename = make_backup_filename()
+    if filename_maker is None:
+        filename_maker = make_backup_filename
+
+    filename = filename_maker()
     destination = os.path.join(backup_dir, filename)
 
     database_handler = DatabaseHandler(database_settings)
     Encryptor().encrypt(database_handler.dump(), recipients, destination, gpg_home=gpg_home)
+    return destination
 
 def restore(database_settings, restore_from, gpg_home=None):
     if not os.path.exists(restore_from):
