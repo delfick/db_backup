@@ -1,7 +1,7 @@
 # coding: spec
 
 from db_backup.errors import BadBackupFile, NonEmptyDatabase
-from db_backup.commands import backup, restore
+from db_backup.commands import backup, restore, sanitise_path
 
 from tests.utils import a_temp_directory, path_to, assert_is_binary, a_temp_file
 from tests.case import TestCase
@@ -46,16 +46,41 @@ describe TestCase, "Backup command":
                 assert os.path.exists(destination)
                 assert_is_binary(destination)
 
+describe TestCase, "Sanitise path":
+    @mock.patch("db_backup.commands.urlparse.urlparse")
+    it "passes the url through if it doesn't have a file scheme", fake_urlparse:
+        path = mock.Mock(name="path")
+        info = mock.Mock(name="info")
+        fake_urlparse.return_value = info
+
+        info.scheme = None
+        info.netloc = "one"
+        info.path = "/two/three"
+        self.assertIs(sanitise_path(path), path)
+
+        info.scheme = "file"
+        self.assertEqual(sanitise_path(path), "one/two/three")
+
+    it "correctly identifies schemes":
+        self.assertEqual(sanitise_path("file://blah/and/things.gpg"), "blah/and/things.gpg")
+        self.assertEqual(sanitise_path("file:///stuff/or/trees.blah"), "/stuff/or/trees.blah")
+        self.assertEqual(sanitise_path("ftp://qwerty"), "ftp://qwerty")
+        self.assertEqual(sanitise_path("s3://dvorak"), "s3://dvorak")
+
 describe TestCase, "Restore command":
-    it "complains if the restore_from backup file doesn't exist":
+    @mock.patch("db_backup.commands.sanitise_path")
+    it "complains if the restore_from backup file doesn't exist", fake_sanitise_path:
         with a_temp_file() as restore_from:
             os.remove(restore_from)
+            fake_sanitise_path.return_value = restore_from
             with self.assertRaisesRegexp(BadBackupFile, "The backup file at '{0}' doesn't exist".format(restore_from)):
                 database_settings = mock.Mock(name="database_settings")
                 restore(database_settings, restore_from)
+            fake_sanitise_path.assert_called_once_with(restore_from)
 
+    @mock.patch("db_backup.commands.sanitise_path")
     @mock.patch("db_backup.commands.DatabaseHandler")
-    it "complains if the database isn't empty", FakeDatabaseHandler:
+    it "complains if the database isn't empty", FakeDatabaseHandler, fake_sanitise_path:
         handler = mock.Mock(name="handler")
         database_settings = mock.Mock(name="database_settings")
 
@@ -63,10 +88,12 @@ describe TestCase, "Restore command":
         handler.is_empty.side_effect = lambda: False
 
         with a_temp_file() as restore_from:
+            fake_sanitise_path.return_value = restore_from
             with self.assertRaisesRegexp(NonEmptyDatabase, "Sorry, won't restore to a database that isn't empty"):
                 restore(database_settings, restore_from)
                 FakeDatabaseHandler.assert_called_once_with(database_settings)
                 handler.is_empty.assert_called_once()
+            fake_sanitise_path.assert_called_once_with(restore_from)
 
     @mock.patch("db_backup.commands.Encryptor")
     @mock.patch("db_backup.commands.DatabaseHandler")

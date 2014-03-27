@@ -32,4 +32,3 @@ class Encryptor(object):
         if password: options.extend(["--passphrase-file", "/dev/stdin"])
         options.append(location)
         return stdout_chunks("gpg", ' '.join(options), "Decrypting something", interaction=password)
-
