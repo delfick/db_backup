@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
       name = "db_backup"
-    , version = "0.1.1"
+    , version = "0.1.2"
     , packages = ['db_backup'] + ['db_backup.%s' % pkg for pkg in find_packages('db_backup')]
     , include_package_data = True
 
