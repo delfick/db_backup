@@ -25,9 +25,16 @@ def make_non_blocking(stream):
     fl = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
-def start_process(command, capture_stdin=False):
-    stdin = subprocess.PIPE if capture_stdin else None
-    process = subprocess.Popen(shlex.split(command), stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+def start_process(command, env=None, capture_stdin=False, stdin=None):
+    stdin_flag = subprocess.PIPE if capture_stdin or stdin else None
+
+    environment = os.environ.copy()
+    if env:
+        environment.update(env)
+    process = subprocess.Popen(shlex.split(command), stdin=stdin_flag, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=environment)
+
+    if stdin:
+        process.stdin.write(stdin)
 
     make_non_blocking(process.stdout)
     make_non_blocking(process.stderr)
@@ -148,12 +155,12 @@ def non_hanging_process(process, desc, timeout=30):
 
         wait_for(process, desc, timeout=0)
 
-def stdout_chunks(command, options, desc, interaction=None):
+def stdout_chunks(command, options, desc, interaction=None, env=None, stdin=None):
     """
     Yield chunks from stdout from a process running specified command
     Anything from stderr is logged
     """
-    process = check_and_start_process(command, options, desc, capture_stdin=bool(interaction))
+    process = check_and_start_process(command, options, desc, capture_stdin=bool(interaction), env=env, stdin=stdin)
     if interaction:
         process.stdin.write(interaction)
         process.stdin.close()

@@ -96,8 +96,11 @@ describe TestCase, "DatabaseHandler":
 
         describe "Dump":
             it "returns stdout from running the dump command":
-                self.db_driver.dump_command.side_effect = lambda: ("echo", "-e \"stuff\nand\nthings\"")
-                self.assertEqual(list(self.handler.dump()), ["stuff\nand\nthings\n"])
+                dump_command_cm = mock.MagicMock(name="dump_command_cm")
+                dump_command_cm.__enter__.return_value = ("echo", "-e \"stuff\nand\nthings\"", {}, None)
+                self.db_driver.dump_command.return_value = dump_command_cm
+                dump = self.handler.dump()
+                self.assertEqual(list(dump), ["stuff\nand\nthings\n"])
 
         describe "is_empty":
             it "Asks the driver what it thinks":
@@ -109,15 +112,19 @@ describe TestCase, "DatabaseHandler":
             @mock.patch("db_backup.databases.feed_process")
             @mock.patch("db_backup.databases.check_and_start_process")
             it "Uses the restore_command to make a restorer that it feeds with the provided data", fake_check_and_start_process, fake_feed_process:
+                env = mock.Mock(name="env")
+                stdin = mock.Mock(name="stdin")
                 food = mock.Mock(name="food")
                 command = mock.Mock(name="command")
                 options = mock.Mock(name="options")
                 restorer = mock.Mock(name="restorer")
 
-                self.db_driver.restore_command.side_effect = lambda: (command, options)
-                fake_check_and_start_process.side_effect = lambda *args, **kwargs: restorer
+                restore_command_cm = mock.MagicMock(name="restore_command_cm")
+                restore_command_cm.__enter__.return_value = (command, options, env, stdin)
+                self.db_driver.restore_command.return_value = restore_command_cm
+                fake_check_and_start_process.return_value = restorer
 
                 self.handler.restore(food)
-                fake_check_and_start_process.assert_called_once_with(command, options, "Restore command", capture_stdin=True)
+                fake_check_and_start_process.assert_called_once_with(command, options, "Restore command", capture_stdin=True, env=env, stdin=stdin)
                 fake_feed_process.assert_called_once_with(restorer, "Restoring database", food)
 

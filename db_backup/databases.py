@@ -1,6 +1,8 @@
 from db_backup.processes import stdout_chunks, check_and_start_process, feed_process
 from db_backup.errors import NoDBDriver, NoDatabase
 
+from contextlib import contextmanager
+import tempfile
 import logging
 import os
 
@@ -32,9 +34,17 @@ class DatabaseDriver(object):
     """
     Base class for the database drivers
     These are used by DatabaseHandler so it doesn't care what engine is being used
+
+    Password_option if specified is a 4 item tuple of (env, option, file_contents, stdin)
+    Where env and option are (flag, val) pairs where the val is formatted with values from the database info.
+    Also provided is a PASSWORD_FILE value which holds a temporary file with the file_contents string
+    file_contents is also formatted with database values.
+    Stdin if specified (also formatted with database values) is fed into the stdin of the process
     """
 
     aliases = ()
+    password_option = None
+
     dump_template = ("", "")
     restore_template = ("", "")
     is_empty_template = ("", "")
@@ -42,6 +52,22 @@ class DatabaseDriver(object):
     def __init__(self, database_info):
         self.database_info = database_info
 
+    @contextmanager
+    def a_temp_file(self, content):
+        """Yield a temporary file and ensure it gets deleted"""
+        filename = None
+        try:
+            if content:
+                filename = tempfile.NamedTemporaryFile(delete=False).name
+                with open(filename, "w") as fle:
+                    fle.write(content)
+
+            yield filename
+        finally:
+            if filename and os.path.exists(filename):
+                os.remove(filename)
+
+    @contextmanager
     def fill_out(self, template):
         """
         Fill out a template with the database_info
@@ -53,30 +79,60 @@ class DatabaseDriver(object):
         If val formatted with the database_info is empty then that flag is ignored.
         """
         opts = []
+        stdin = None
+        environment = {}
+        file_contents = None
+
         values = self.database_info.as_dict()
         command, argv = template
 
         if isinstance(argv, basestring):
             argv = [("", argv)]
 
-        for flag, val in argv:
-            filled = val.format(**values)
-            if filled:
-                opts.append("{0} {1}".format(flag, filled))
+        if self.database_info.password and self.password_option:
+            env, option, file_contents, stdin = self.password_option
+            if env:
+                environment.update(env)
 
-        return (command, " ".join(opts))
+            if option:
+                argv.insert(0, option)
 
+        if file_contents:
+            file_contents = file_contents.format(**values)
+
+        if stdin:
+            stdin = stdin.format(**values)
+
+        with self.a_temp_file(file_contents) as password_file:
+            values["PASSWORD_FILE"] = password_file
+
+            for flag, val in argv:
+                filled = val.format(**values)
+                if filled:
+                    opts.append("{0} {1}".format(flag, filled))
+
+            for name, val in environment.items():
+                filled = val.format(**values)
+                if filled:
+                    environment[name] = filled
+
+            yield (command, " ".join(opts), environment, stdin)
+
+    @contextmanager
     def dump_command(self):
         """Return us the command for dumping as (program, options)"""
-        return self.fill_out(self.dump_template)
+        with self.fill_out(self.dump_template) as info:
+            yield info
 
+    @contextmanager
     def restore_command(self):
         """
         Return us the command for restoring from a backup as (program, options)
         This command should accept the output of the dump_command as input
         (The encrypted output of the dump_command output is decrypted when the restore command is run)
         """
-        return self.fill_out(self.restore_template)
+        with self.fill_out(self.restore_template) as info:
+            yield info
 
     def is_empty(self):
         """See that there are no tables under this database"""
@@ -86,8 +142,8 @@ class DatabaseDriver(object):
 
     def run_template(self, template, desc):
         """Run a template and return it's stdout"""
-        command, options = self.fill_out(template)
-        return '\n'.join(stdout_chunks(command, options, desc)).strip()
+        with self.fill_out(template) as (command, options, env, stdin):
+            return '\n'.join(stdout_chunks(command, options, desc, env=env, stdin=stdin)).strip()
 
 class PsqlDriver(DatabaseDriver):
     aliases = ('psql', 'django.db.backends.postgresql_psycopg2', )
@@ -97,6 +153,7 @@ class PsqlDriver(DatabaseDriver):
           ("-U", "{user}"), ("--host", "{host}"), ("--port", "{port}"), ("", "{name}")
         , ("", "-c \"select count(*) from information_schema.tables where table_schema = 'public'\" -t -A")
         ])
+    password_option = ({"PGPASSFILE": "{PASSWORD_FILE}"}, None, "localhost:*:*:{user}:{password}", None)
 
 class MysqlDriver(DatabaseDriver):
     aliases = ('mysql', 'django.db.backends.mysql', )
@@ -106,6 +163,7 @@ class MysqlDriver(DatabaseDriver):
           ("--user", "{user}"), ("--host", "{host}"), ("--port", "{port}"), ("-D", "{name}")
         , ("", "-e \"select count(*) from information_schema.tables where table_schema = '{name}'\" --batch -s")
         ])
+    password_option = (None, ("", "--defaults-extra-file={PASSWORD_FILE}"), "[client]\nuser={user}\npassword={password}", None)
 
 class SqliteDriver(DatabaseDriver):
     aliases = ('sqlite3', 'django.db.backends.sqlite3', )
@@ -139,14 +197,15 @@ class DatabaseHandler(object):
 
     def dump(self):
         """Dump the contents of the database and yield a chunk at a time without hitting the disk"""
-        command, options = self.db_driver.dump_command()
-        return stdout_chunks(command, options, "Dump command")
+        with self.db_driver.dump_command() as (command, options, env, stdin):
+            for chunk in stdout_chunks(command, options, "Dump command", env=env, stdin=stdin):
+                yield chunk
 
     def restore(self, food):
         """Restore from the provided chunks"""
-        command, options = self.db_driver.restore_command()
-        restorer = check_and_start_process(command, options, "Restore command", capture_stdin=True)
-        feed_process(restorer, "Restoring database", food)
+        with self.db_driver.restore_command() as (command, options, env, stdin):
+            restorer = check_and_start_process(command, options, "Restore command", env=env, capture_stdin=True, stdin=stdin)
+            feed_process(restorer, "Restoring database", food)
 
     def is_empty(self):
         """Work out if the database is empty"""

@@ -30,9 +30,15 @@ install:
   # Setup the databases
   - sudo mysql -e "create user db_backup_tests"
   - sudo mysql -e "grant all privileges on db_backup_test_db.* to 'db_backup_tests'@'localhost' with grant option"
+
+  - sudo mysql -e "create user db_bkp_tests_pwd identified by 'password'"
+  - sudo mysql -e "grant usage on *.* to 'db_bkp_tests_pwd'@'localhost' identified by 'password'"
+  - sudo mysql -e "grant all privileges on db_backup_test_db.* to 'db_bkp_tests_pwd'@'localhost' with grant option"
+
   - sudo mysql -e "select User from mysql.user"
   - sudo mysql -e "show grants for db_backup_tests@localhost"
   - sudo -u postgres psql -c "create user db_backup_tests with CREATEDB"
+  - sudo -u postgres psql -c "create user db_bkp_tests_pwd with CREATEDB PASSWORD 'password'"
 
   # See versions for debugging piece of mind
   - gpg --version
